@@ -8,5 +8,5 @@ data class Day(
     val tasks: List<Task>,
     val lastEdited: Instant,
     val backgroundSeed: Long? = null,
-    val backgroundType: Int? = null // NEW: store pattern selection (0..N-1)
+    val backgroundType: Int? = null
 )

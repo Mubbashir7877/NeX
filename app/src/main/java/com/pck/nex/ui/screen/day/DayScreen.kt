@@ -1,30 +1,35 @@
 package com.pck.nex.ui.screen.day
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.ui.text.input.ImeAction
 
 import android.app.TimePickerDialog
 import android.content.Context
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.pck.nex.data.inmemory.InMemoryDayStore
 import com.pck.nex.domain.model.Task
-import com.pck.nex.graphics.ContrastUtils
 import com.pck.nex.graphics.NexBackgroundCanvas
 import com.pck.nex.graphics.PatternType
 import com.pck.nex.graphics.buildBackground
 import com.pck.nex.notifications.TaskAlarmScheduler
+import com.pck.nex.ui.UiColors
+import com.pck.nex.ui.uiColorsForBase
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
@@ -45,75 +50,62 @@ fun DayScreen() {
         day = InMemoryDayStore.getOrCreate(date)
     }
 
-    val isPast = date.isBefore(LocalDate.now())
-    val dateLabel = date.format(DateTimeFormatter.ofPattern("EEE, MMM d, yyyy"))
-
     val today = LocalDate.now()
+    val isPast = date.isBefore(today)
+    val isToday = date == today
     val isFuture = date.isAfter(today)
 
-// FUTURE DAYS: pure black background until the day arrives
+    val dateLabel = date.format(DateTimeFormatter.ofPattern("EEE, MMM d, yyyy"))
+
+    // Background rules:
+    // - Future days: pure black
+    // - Today: generate once at day start, stable until user refreshes (today only)
+    // - Past: stable and not changeable
+    if (isToday && (day.backgroundSeed == null || day.backgroundType == null)) {
+        val seed = seedForDayStart(date)
+        val type = (seed % PatternType.entries.size).toInt()
+        day = InMemoryDayStore.save(day.copy(backgroundSeed = seed, backgroundType = type))
+    }
+
     val bg = if (isFuture) {
         com.pck.nex.graphics.NexBackground(
             seed = 0L,
-            type = com.pck.nex.graphics.PatternType.DIAG_STRIPES, // unused
-            a = androidx.compose.ui.graphics.Color.Black,
-            b = androidx.compose.ui.graphics.Color.Black
+            type = PatternType.DIAG_STRIPES,
+            a = Color.Black,
+            b = Color.Black
         )
     } else {
-        // Today or past: use stored background if present; otherwise generate ONCE for "today"
-        val seed = day.backgroundSeed
-        val typeId = day.backgroundType
-
-        val resolvedSeed = seed ?: seedFrom(date, date.toEpochDay()) // stable for day start
-        val resolvedType =
-            typeId ?: ((resolvedSeed % com.pck.nex.graphics.PatternType.entries.size).toInt())
-
-        // If it's today and background not yet assigned, assign it once (day-start behavior)
-        if (date == today && (day.backgroundSeed == null || day.backgroundType == null)) {
-            val newSeed = seedFrom(date, date.toEpochDay()) // deterministic per day
-            val newType = (newSeed % com.pck.nex.graphics.PatternType.entries.size).toInt()
-            val updated = day.copy(backgroundSeed = newSeed, backgroundType = newType)
-            day = InMemoryDayStore.save(updated)
-        }
-
-        buildBackground(resolvedSeed, forcedTypeId = resolvedType)
+        val seed = day.backgroundSeed ?: seedForDayStart(date)
+        val typeId = day.backgroundType ?: ((seed % PatternType.entries.size).toInt())
+        buildBackground(seed, forcedTypeId = typeId)
     }
 
-// Text/checkbox color: must contrast against BOTH colors
-    val (autoTextColor, worstScore) =
-        if (isFuture) {
-            androidx.compose.ui.graphics.Color.White to 999.0
-        } else {
-            ContrastUtils.bestTextOnDualWithScore(bg.a, bg.b)
-        }
+    // UI colors derived from base fill color bg.a
+    val ui = if (isFuture) {
+        // Force white UI on future black screen
+        UiColors(
+            text = Color.White,
+            outline = Color.White,
+            panelFill = Color.White.copy(alpha = 0.14f),
+            fieldFill = Color.White.copy(alpha = 0.18f),
+            buttonFill = Color.White.copy(alpha = 0.22f),
+            buttonText = Color.White
+        )
+    } else uiColorsForBase(bg.a)
 
-    val textColor = autoTextColor
-
-// If worst-case contrast is weak, use a scrim behind the content.
-// 4.5 is WCAG AA for normal text; you can tune this up/down.
-    val useScrim = !isFuture && worstScore < 4.5
-
-    val scrimColor =
-        if (!useScrim) androidx.compose.ui.graphics.Color.Transparent
-        else if (textColor == androidx.compose.ui.graphics.Color.White)
-            androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.45f)
-        else
-            androidx.compose.ui.graphics.Color.White.copy(alpha = 0.45f)
-
-
-    // Bottom add bar state
     var newTaskTitle by remember { mutableStateOf("") }
 
-    // Tap outside to clear focus + hide keyboard (removes IME icons)
+    // Tap outside to hide keyboard
     val noRipple = remember { MutableInteractionSource() }
+
+    // Swipe nav thresholds
+    val swipeThresholdPx = 80f
+    var dragAccum by remember { mutableFloatStateOf(0f) }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .clickable(
-                interactionSource = noRipple,
-                indication = null
-            ) {
+            .clickable(interactionSource = noRipple, indication = null) {
                 focusManager.clearFocus()
                 keyboard?.hide()
             }
@@ -123,246 +115,266 @@ fun DayScreen() {
             background = bg
         )
 
+        // Content area supports horizontal swipe for prev/next
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(16.dp)
-        ) {
-            // SCRIM PANEL (only visible when contrast is weak)
-            Surface(
-                color = scrimColor,
-                shape = MaterialTheme.shapes.large
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(12.dp)
-                ) {
-
-                    /* ---------- HEADER ---------- */
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        TextButton(
-                            onClick = {
-                                focusManager.clearFocus()
-                                keyboard?.hide()
+                .pointerInput(date) {
+                    detectHorizontalDragGestures(
+                        onDragStart = { dragAccum = 0f },
+                        onHorizontalDrag = { _, dragAmount ->
+                            dragAccum += dragAmount
+                        },
+                        onDragEnd = {
+                            // dragAmount: positive usually means right swipe (finger moved right)
+                            // UX: swipe right -> previous day, swipe left -> next day
+                            if (dragAccum > swipeThresholdPx) {
+                                focusManager.clearFocus(); keyboard?.hide()
                                 date = date.minusDays(1)
-                            }
-                        ) {
-                            Text("Prev", color = textColor)
-                        }
-
-                        Text(
-                            text = dateLabel,
-                            style = MaterialTheme.typography.titleLarge,
-                            color = textColor
-                        )
-
-                        TextButton(
-                            onClick = {
-                                focusManager.clearFocus()
-                                keyboard?.hide()
+                            } else if (dragAccum < -swipeThresholdPx) {
+                                focusManager.clearFocus(); keyboard?.hide()
                                 date = date.plusDays(1)
                             }
-                        ) {
-                            Text("Next", color = textColor)
+                            dragAccum = 0f
                         }
-                    }
+                    )
+                }
+        ) {
+            // DATE CHIP (semi-translucent backing)
+            Surface(
+                color = ui.panelFill,
+                shape = RoundedCornerShape(16.dp),
+                tonalElevation = 0.dp
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = dateLabel,
+                        style = MaterialTheme.typography.titleLarge,
+                        color = ui.text
+                    )
 
-                    Spacer(Modifier.height(12.dp))
-
-                    /* ---------- TASK LIST (SCROLLING) ---------- */
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f),
-                        contentPadding = PaddingValues(bottom = 8.dp)
-                    ) {
-                        items(day.tasks, key = { it.id }) { t ->
-                            TaskRow(
-                                context = context,
-                                dayDate = date,
-                                task = t,
-                                enabled = !isPast,
-                                textColor = textColor,
-                                checkboxColor = textColor,
-                                onToggle = { checked ->
-                                    val updated = t.copy(isDone = checked)
-                                    day = autosaveDay(date = date, updateTask = updated)
-                                },
-                                onSetDueTime = { due ->
-                                    val updated = t.copy(dueTime = due)
-                                    day = autosaveDay(date = date, updateTask = updated)
-
-                                    // Only schedule alarms for today
-                                    if (date == LocalDate.now()) {
-                                        val triggerAt = LocalDateTime.of(date, due)
-                                        TaskAlarmScheduler.scheduleTaskAlarm(
-                                            context,
-                                            date,
-                                            updated.title,
-                                            stableRequestId(date, updated.id),
-                                            triggerAt
-                                        )
-                                    }
-                                },
-                                onClearDueTime = {
-                                    val updated = t.copy(dueTime = null)
-                                    day = autosaveDay(date = date, updateTask = updated)
-                                    TaskAlarmScheduler.cancelTaskAlarm(
-                                        context,
-                                        stableRequestId(date, t.id)
-                                    )
-                                },
-                                onDelete = {
-                                    TaskAlarmScheduler.cancelTaskAlarm(
-                                        context,
-                                        stableRequestId(date, t.id)
-                                    )
-                                    day = autosaveDay(date = date, deleteTaskId = t.id)
-                                }
-                            )
-                        }
-                    }
-
-                    /* ---------- MANUAL REGENERATE (TODAY ONLY) ---------- */
-                    if (date == LocalDate.now()) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.Start
-                        ) {
-                            TextButton(
-                                onClick = {
-                                    val newSeed = System.currentTimeMillis()
-                                    val newType =
-                                        (newSeed % PatternType.entries.size).toInt()
-                                    day = InMemoryDayStore.save(
-                                        day.copy(
-                                            backgroundSeed = newSeed,
-                                            backgroundType = newType
-                                        )
-                                    )
-                                }
-                            ) {
-                                Text("↻", color = textColor)
-                            }
-                        }
-                    }
-
-                    /* ---------- ADD TASK BAR (BOTTOM) ---------- */
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        OutlinedTextField(
-                            value = newTaskTitle,
-                            onValueChange = { newTaskTitle = it },
-                            modifier = Modifier.weight(1f),
-                            label = { Text("New task") },
-                            enabled = !isPast,
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                            keyboardActions = KeyboardActions(
-                                onDone = {
-                                    val title = newTaskTitle.trim()
-                                    if (!isPast && title.isNotEmpty()) {
-                                        val t = Task(title = title)
-                                        day = autosaveDay(date = date, updateTask = t)
-                                        newTaskTitle = ""
-                                        focusManager.clearFocus()
-                                        keyboard?.hide()
-                                    }
-                                }
-                            )
+                    // Refresh background (today only)
+                    TextButton(
+                        enabled = isToday,
+                        onClick = {
+                            val newSeed = System.currentTimeMillis()
+                            val newType = (newSeed % PatternType.entries.size).toInt()
+                            day = InMemoryDayStore.save(day.copy(backgroundSeed = newSeed, backgroundType = newType))
+                        },
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = ui.text
                         )
+                    ) {
+                        Text("↻", color = ui.text)
+                    }
+                }
+            }
 
-                        Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.height(10.dp))
 
-                        Button(
-                            enabled = !isPast && newTaskTitle.isNotBlank(),
-                            onClick = {
+            // TASK LIST (scrollable)
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                contentPadding = PaddingValues(bottom = 10.dp)
+            ) {
+                items(day.tasks, key = { it.id }) { t ->
+                    TaskRow(
+                        context = context,
+                        dayDate = date,
+                        task = t,
+                        enabled = !isPast,
+                        ui = ui,
+                        onToggle = { checked ->
+                            val updated = t.copy(isDone = checked)
+                            day = autosaveDay(date = date, updateTask = updated)
+                        },
+                        onSetDueTime = { due ->
+                            val updated = t.copy(dueTime = due)
+                            day = autosaveDay(date = date, updateTask = updated)
+
+                            // Schedule alarms only for TODAY for now
+                            if (date == LocalDate.now()) {
+                                val triggerAt = LocalDateTime.of(date, due)
+                                val requestId = stableRequestId(date, updated.id)
+                                TaskAlarmScheduler.scheduleTaskAlarm(
+                                    context = context,
+                                    day = date,
+                                    taskTitle = updated.title,
+                                    requestId = requestId,
+                                    triggerAt = triggerAt
+                                )
+                            }
+                        },
+                        onClearDueTime = {
+                            val updated = t.copy(dueTime = null)
+                            day = autosaveDay(date = date, updateTask = updated)
+                            TaskAlarmScheduler.cancelTaskAlarm(context, stableRequestId(date, t.id))
+                        },
+                        onDelete = {
+                            TaskAlarmScheduler.cancelTaskAlarm(context, stableRequestId(date, t.id))
+                            day = autosaveDay(date = date, deleteTaskId = t.id)
+                        }
+                    )
+                    Spacer(Modifier.height(8.dp))
+                }
+            }
+
+            // BOTTOM ADD BAR (semi-translucent backing for field + button)
+            Surface(
+                color = ui.fieldFill,
+                shape = RoundedCornerShape(18.dp),
+                tonalElevation = 0.dp
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = newTaskTitle,
+                        onValueChange = { newTaskTitle = it },
+                        modifier = Modifier.weight(1f),
+                        label = { Text("New task", color = ui.text.copy(alpha = 0.75f)) },
+                        enabled = !isPast,
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = ui.text,
+                            unfocusedTextColor = ui.text,
+                            focusedBorderColor = ui.outline,
+                            unfocusedBorderColor = ui.outline.copy(alpha = 0.65f),
+                            cursorColor = ui.text,
+                            focusedLabelColor = ui.text.copy(alpha = 0.75f),
+                            unfocusedLabelColor = ui.text.copy(alpha = 0.65f),
+                            // keep field container transparent since Surface provides the fill
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent
+                        ),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(
+                            onDone = {
                                 val title = newTaskTitle.trim()
-                                if (title.isNotEmpty()) {
-                                    val t = Task(title = title)
-                                    day = autosaveDay(date = date, updateTask = t)
+                                if (!isPast && title.isNotEmpty()) {
+                                    val task = Task(
+                                        id = UUID.randomUUID(),
+                                        title = title,
+                                        isDone = false,
+                                        dueTime = null
+                                    )
+                                    day = autosaveDay(date = date, updateTask = task)
                                     newTaskTitle = ""
                                     focusManager.clearFocus()
                                     keyboard?.hide()
                                 }
                             }
-                        ) {
-                            Text("Add")
-                        }
+                        )
+                    )
+
+                    Spacer(Modifier.width(10.dp))
+
+                    Button(
+                        enabled = !isPast && newTaskTitle.isNotBlank(),
+                        onClick = {
+                            val title = newTaskTitle.trim()
+                            if (title.isNotEmpty()) {
+                                val task = Task(
+                                    id = UUID.randomUUID(),
+                                    title = title,
+                                    isDone = false,
+                                    dueTime = null
+                                )
+                                day = autosaveDay(date = date, updateTask = task)
+                                newTaskTitle = ""
+                                focusManager.clearFocus()
+                                keyboard?.hide()
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = ui.buttonFill,
+                            contentColor = ui.buttonText
+                        ),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Text("Add")
                     }
                 }
             }
+
+            Spacer(Modifier.height(6.dp))
+
+            // Micro-hint (optional, minimal): swipe instruction
+            Text(
+                text = "Swipe left/right to change day",
+                color = ui.text.copy(alpha = 0.55f),
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            )
         }
     }
-
 }
-
-        /**
- * Centralized autosave.
- * - Applies changes to the in-memory store
- * - Regenerates and stores a new backgroundSeed on each save event
- */
-private fun autosaveDay(
-    date: LocalDate,
-    updateTask: Task? = null,
-    deleteTaskId: UUID? = null
-): com.pck.nex.domain.model.Day {
-    var d = InMemoryDayStore.getOrCreate(date)
-    if (updateTask != null) d = InMemoryDayStore.upsertTask(date, updateTask)
-    if (deleteTaskId != null) d = InMemoryDayStore.deleteTask(date, deleteTaskId)
-    return InMemoryDayStore.save(d) // NO background change here
-}
-
 
 @Composable
 private fun TaskRow(
     context: Context,
     dayDate: LocalDate,
     task: Task,
-    checkboxColor: androidx.compose.ui.graphics.Color,
     enabled: Boolean,
-    textColor: androidx.compose.ui.graphics.Color,
+    ui: UiColors,
     onToggle: (Boolean) -> Unit,
     onSetDueTime: (LocalTime) -> Unit,
     onClearDueTime: () -> Unit,
     onDelete: () -> Unit
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically
+    Surface(
+        color = ui.panelFill,
+        shape = RoundedCornerShape(18.dp),
+        tonalElevation = 0.dp
     ) {
-        Checkbox(
-            checked = task.isDone,
-            onCheckedChange = { if (enabled) onToggle(it) },
-            enabled = enabled,
-            colors = CheckboxDefaults.colors(
-                checkedColor = checkboxColor,
-                uncheckedColor = checkboxColor,
-                checkmarkColor = if (checkboxColor == androidx.compose.ui.graphics.Color.White)
-                    androidx.compose.ui.graphics.Color.Black
-                else
-                    androidx.compose.ui.graphics.Color.White
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Checkbox(
+                checked = task.isDone,
+                onCheckedChange = { if (enabled) onToggle(it) },
+                enabled = enabled,
+                colors = CheckboxDefaults.colors(
+                    checkedColor = ui.text,
+                    uncheckedColor = ui.text,
+                    checkmarkColor = if (ui.text == Color.White) Color.Black else Color.White
+                )
             )
-        )
 
+            Spacer(Modifier.width(10.dp))
 
-        Spacer(Modifier.width(8.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(task.title, color = textColor)
-            val dueLabel = task.dueTime?.format(DateTimeFormatter.ofPattern("h:mm a")) ?: "No due time"
-            Text(dueLabel, color = textColor.copy(alpha = 0.75f), style = MaterialTheme.typography.bodySmall)
-        }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(task.title, color = ui.text)
 
-        TextButton(
-            enabled = enabled,
-            onClick = {
+                val dueLabel = task.dueTime?.format(DateTimeFormatter.ofPattern("h:mm a")) ?: "No due time"
+                Text(
+                    dueLabel,
+                    color = ui.text.copy(alpha = 0.75f),
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+
+            // Small translucent button chips for actions
+            ActionChip(
+                text = "Time",
+                enabled = enabled,
+                ui = ui
+            ) {
                 val now = LocalTime.now()
                 TimePickerDialog(
                     context,
@@ -372,18 +384,59 @@ private fun TaskRow(
                     false
                 ).show()
             }
-        ) { Text("Time", color = textColor) }
 
-        if (task.dueTime != null) {
-            TextButton(enabled = enabled, onClick = onClearDueTime) { Text("Clear", color = textColor) }
+            Spacer(Modifier.width(8.dp))
+
+            if (task.dueTime != null) {
+                ActionChip(text = "Clear", enabled = enabled, ui = ui) { onClearDueTime() }
+                Spacer(Modifier.width(8.dp))
+            }
+
+            ActionChip(text = "Del", enabled = enabled, ui = ui) { onDelete() }
         }
-
-        TextButton(enabled = enabled, onClick = onDelete) { Text("Del", color = textColor) }
     }
 }
 
-private fun seedFrom(date: LocalDate, millis: Long): Long {
-    return (date.toEpochDay() * 31L) + (millis % Int.MAX_VALUE)
+@Composable
+private fun ActionChip(
+    text: String,
+    enabled: Boolean,
+    ui: UiColors,
+    onClick: () -> Unit
+) {
+    Button(
+        onClick = onClick,
+        enabled = enabled,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = ui.buttonFill,
+            contentColor = ui.buttonText
+        ),
+        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Text(text)
+    }
+}
+
+/**
+ * Autosave only updates tasks. It does NOT touch background.
+ */
+private fun autosaveDay(
+    date: LocalDate,
+    updateTask: Task? = null,
+    deleteTaskId: UUID? = null
+): com.pck.nex.domain.model.Day {
+    var d = InMemoryDayStore.getOrCreate(date)
+    if (updateTask != null) d = InMemoryDayStore.upsertTask(date, updateTask)
+    if (deleteTaskId != null) d = InMemoryDayStore.deleteTask(date, deleteTaskId)
+    return InMemoryDayStore.save(d)
+}
+
+/**
+ * Stable per-day seed used at day start.
+ */
+private fun seedForDayStart(date: LocalDate): Long {
+    return date.toEpochDay() * 1103515245L + 12345L
 }
 
 private fun stableRequestId(date: LocalDate, taskId: UUID): Int {
