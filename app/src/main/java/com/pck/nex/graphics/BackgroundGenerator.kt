@@ -5,6 +5,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Canvas
 import androidx.compose.ui.graphics.Color
 import kotlin.math.*
 import kotlin.random.Random
@@ -69,21 +70,35 @@ private val NEX_PALETTE: List<Color> = listOf(
     Color(0xFF1E3A8A), // deep indigo
     Color(0xFF0F766E), // deep teal
     Color(0xFF166534), // deep green
-    Color(0xFF7C2D12), // deep orange-brown
+    Color(0xFF6FA8A1),
+    Color(0xFF8A6C01 ),
+    Color(0xFF100B36),
+    Color(0xFF36072F),
+    Color(0xFF280B36),
+    Color(0XFF4D1702), // deep orange-brown
     Color(0xFF7F1D1D), // deep red
 
     // Mid tones (muted)
+    Color(0xFFF520D5),
     Color(0xFF1D4ED8), // blue-700
     Color(0xFF0284C7), // sky-600
     Color(0xFF0D9488), // teal-600
     Color(0xFF16A34A), // green-600
+    Color(0xFF1CB302 ),
+    Color(0xFFF5E642),
     Color(0xFFD97706), // amber-600
     Color(0xFFDC2626), // red-600
     Color(0xFF7C3AED), // violet-600
 
     // Light neutrals (used carefully)
     Color(0xFFE5E7EB),
-    Color(0xFFF1F5F9),
+    Color(0xFFFC9292 ),
+    Color(0xFFFCB092 ),
+    Color(0xFFC1F5B8 ),
+    Color(0xFFF7EF8F ),
+    Color(0xFFA1FFFC ),
+    Color(0xFFFFA3EA),
+    Color(0xFFA9ADFC ),
     Color(0xFFFFF7ED)
 )
 
@@ -220,14 +235,14 @@ fun NexBackgroundCanvas(modifier: Modifier, background: NexBackground) {
 
         when (background.type) {
             PatternType.DIAG_STRIPES ->
-                stripe(step = min(w, h) / 7f, angleRad = PI.toFloat() / 4f, thick = min(w, h) / 18f)
+                stripe(step = min(w, h) / 7f, angleRad = PI.toFloat() / 19f, thick = min(w, h) / 24f)
 
             PatternType.WIDE_DIAG_STRIPES ->
-                stripe(step = min(w, h) / 4.5f, angleRad = PI.toFloat() / 4f, thick = min(w, h) / 10f)
+                stripe(step = min(w, h) / 4.5f, angleRad = PI.toFloat() / -9f, thick = min(w, h) / 30f)
 
             PatternType.H_STRIPES -> {
-                val step = h / 10f
-                val thick = h / 18f
+                val step = h / 7f
+                val thick = h / 38f
                 var y = 0f
                 while (y < h) {
                     drawRect(b, topLeft = Offset(0f, y), size = Size(w, thick))
@@ -237,7 +252,7 @@ fun NexBackgroundCanvas(modifier: Modifier, background: NexBackground) {
 
             PatternType.V_STRIPES -> {
                 val step = w / 10f
-                val thick = w / 18f
+                val thick = w / 28f
                 var x = 0f
                 while (x < w) {
                     drawRect(b, topLeft = Offset(x, 0f), size = Size(thick, h))
@@ -325,27 +340,34 @@ fun NexBackgroundCanvas(modifier: Modifier, background: NexBackground) {
             }
 
             PatternType.ZIGZAG -> {
-                val step = w / 10f
-                val amp = min(w, h) / 25f
-                var x = 0f
-                while (x < w + step) {
-                    val yMid = h / 2f + sin(x / step) * amp * 3f
-                    drawLine(b, Offset(x, yMid - amp), Offset(x + step / 2f, yMid + amp), 6f)
-                    drawLine(b, Offset(x + step / 2f, yMid + amp), Offset(x + step, yMid - amp), 6f)
-                    x += step
+                val s = min(w, h) / 13f
+                var y = 0f
+                while (y < h + s) {
+                    var x = 0f
+                    while (x < w + s) {
+                        val up = ((x / s).toInt() + (y / s).toInt()) % 2 == 0
+                        val p1 = Offset(x, y)
+                        val p2 = Offset(x + s, y)
+                        val p3 = if (up) Offset(x + s / 2f, y - s) else Offset(x + s / 2f, y + s)
+                        drawLine(b, p1, p2, strokeWidth = 4f)
+                        drawLine(b, p2, p3, strokeWidth = 4f)
+                        drawLine(b, p3, p1, strokeWidth = 4f)
+                        x += s
+                    }
+                    y += s
                 }
             }
 
             PatternType.WAVES -> {
                 val step = w / 12f
-                val amp = min(w, h) / 18f
+                val amp = min(w, h) / 16f
                 var y = amp
                 while (y < h) {
                     var x = 0f
                     while (x < w) {
                         val y2 = y + sin((x / step) * 2f * PI.toFloat()) * amp
                         drawCircle(b, radius = 3.2f, center = Offset(x, y2))
-                        x += 10f
+                        x += 6f
                     }
                     y += amp * 1.4f
                 }
@@ -456,3 +478,5 @@ fun NexBackgroundCanvas(modifier: Modifier, background: NexBackground) {
         }
     }
 }
+
+fun patternCount(): Int = PatternType.entries.size

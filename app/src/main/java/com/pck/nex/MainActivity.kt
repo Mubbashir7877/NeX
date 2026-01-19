@@ -10,6 +10,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import app.nex.ui.theme.NeXTheme
 import com.pck.nex.ui.screen.day.DayScreen
+import com.pck.nex.graphics.debug.PatternCatalogExporter
 
 class MainActivity : ComponentActivity() {
 
@@ -30,5 +31,8 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+
+       PatternCatalogExporter.runIfEnabled(this)
+
     }
 }
