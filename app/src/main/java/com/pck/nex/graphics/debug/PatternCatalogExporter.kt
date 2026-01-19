@@ -32,8 +32,8 @@ import kotlin.math.min
  * Flip these while coding.
  */
 object PatternCatalogConfig {
-    const val ENABLE_EXPORT = true
-    val TEST_SINGLE_PATTERN_ID: Int? = 10 // e.g. 11 for WAVES; null = all
+    const val ENABLE_EXPORT = false
+    val TEST_SINGLE_PATTERN_ID: Int? = null // e.g. 11 for WAVES; null = all
     const val TILE_SIZE_PX = 360
     const val COLUMNS = 4
     const val SEED = 1234L

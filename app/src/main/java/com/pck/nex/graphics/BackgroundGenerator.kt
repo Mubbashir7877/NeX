@@ -374,20 +374,95 @@ fun NexBackgroundCanvas(modifier: Modifier, background: NexBackground) {
             }
 
             PatternType.CONCENTRIC_CIRCLES -> {
-                val center = Offset(w / 2f, h / 2f)
-                var r = min(w, h) / 18f
-                while (r < min(w, h)) {
-                    drawCircle(b, r, center, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 6f))
-                    r += min(w, h) / 10f
+                val s = min(w, h) / 7f            // cell size
+                val arm = s * 0.38f               // half-length of cross arms
+                val cap = s * 0.22f               // T cap half-width
+                val sw = 4f
+
+                var y = -s
+                while (y < h + s) {
+                    var x = -s
+                    while (x < w + s) {
+                        val cx = x + s * 0.5f
+                        val cy = y + s * 0.5f
+
+                        // Base cross
+                        val left  = Offset(cx - arm, cy)
+                        val right = Offset(cx + arm, cy)
+                        val up    = Offset(cx, cy - arm)
+                        val down  = Offset(cx, cy + arm)
+
+                        drawLine(b, left, right, strokeWidth = sw)
+                        drawLine(b, up, down, strokeWidth = sw)
+
+                        // Alternate T-caps per cell to create a “cross-tee” rhythm
+                        val parity = ((x / s).toInt() + (y / s).toInt()) and 1
+                        if (parity == 0) {
+                            // Top and Right get T-caps
+                            val topA = Offset(up.x - cap, up.y)
+                            val topB = Offset(up.x + cap, up.y)
+                            drawLine(b, topA, topB, strokeWidth = sw)
+
+                            val rightA = Offset(right.x, right.y - cap)
+                            val rightB = Offset(right.x, right.y + cap)
+                            drawLine(b, rightA, rightB, strokeWidth = sw)
+                        } else {
+                            // Bottom and Left get T-caps
+                            val botA = Offset(down.x - cap, down.y)
+                            val botB = Offset(down.x + cap, down.y)
+                            drawLine(b, botA, botB, strokeWidth = sw)
+
+                            val leftA = Offset(left.x, left.y - cap)
+                            val leftB = Offset(left.x, left.y + cap)
+                            drawLine(b, leftA, leftB, strokeWidth = sw)
+                        }
+
+                        x += s
+                    }
+                    y += s
                 }
             }
 
             PatternType.RINGS_OFFCENTER -> {
-                val center = Offset(w * 0.35f, h * 0.4f)
-                var r = min(w, h) / 20f
-                while (r < min(w, h)) {
-                    drawCircle(b, r, center, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 5f))
-                    r += min(w, h) / 9f
+                val cx = w * 0.5f
+                val cy = h * 0.5f
+                val rMax = min(w, h) * 0.5f
+
+                val arms = 12                 // number of spiral blades
+                val steps = 80                // radial resolution
+                val sw = 4f
+
+                var a = 0
+                while (a < arms) {
+                    val baseAngle = (a.toFloat() / arms) * (Math.PI * 2).toFloat()
+
+                    var i = 0
+                    while (i < steps) {
+                        val t0 = i.toFloat() / steps
+                        val t1 = (i + 1).toFloat() / steps
+
+                        val r0 = t0 * rMax
+                        val r1 = t1 * rMax
+
+                        // Spiral twist increases with radius
+                        val ang0 = baseAngle + t0 * 1.8f
+                        val ang1 = baseAngle + t1 * 1.8f
+
+                        val p0 = Offset(
+                            cx + cos(ang0) * r0,
+                            cy + sin(ang0) * r0
+                        )
+
+                        val p1 = Offset(
+                            cx + cos(ang1) * r1,
+                            cy + sin(ang1) * r1
+                        )
+
+                        drawLine(b, p0, p1, strokeWidth = sw)
+
+                        i++
+                    }
+                    a++
                 }
             }
 
@@ -419,12 +494,38 @@ fun NexBackgroundCanvas(modifier: Modifier, background: NexBackground) {
             }
 
             PatternType.QUADS_RANDOM -> {
-                repeat(60) {
-                    val rw = rnd.nextFloat() * (w / 3f) + 40f
-                    val rh = rnd.nextFloat() * (h / 3f) + 40f
-                    val x = rnd.nextFloat() * (w - rw)
-                    val y = rnd.nextFloat() * (h - rh)
-                    drawRect(b.copy(alpha = 0.55f), topLeft = Offset(x, y), size = Size(rw, rh))
+                val s = min(w, h) / 7f          // spacing
+                val arm = s * 0.58f             // arm length
+                val sw = 4f
+
+                val dx = s * 0.5f
+                val dy = s * 0.866f             // sqrt(3)/2 * s
+
+                var row = -2
+                while (row * dy < h + s) {
+                    val y = row * dy
+                    val offsetX = if (row % 2 == 0) 0f else dx
+
+                    var col = -2
+                    while (col * s < w + s) {
+                        val x = col * s + offsetX
+
+                        val cx = x
+                        val cy = y
+
+                        // Three arms at 120 degrees (hex grid)
+                        val p0 = Offset(cx, cy)
+                        val p1 = Offset(cx + arm, cy)
+                        val p2 = Offset(cx - arm * 0.5f, cy - arm * 0.866f)
+                        val p3 = Offset(cx - arm * 0.5f, cy + arm * 0.866f)
+
+                        drawLine(b, p0, p1, sw)
+                        drawLine(b, p0, p2, sw)
+                        drawLine(b, p0, p3, sw)
+
+                        col++
+                    }
+                    row++
                 }
             }
 
@@ -463,8 +564,8 @@ fun NexBackgroundCanvas(modifier: Modifier, background: NexBackground) {
                         val x2 = x + step
                         val y2 = y + step
                         val mid = Offset(
-                            x + step / 2f + rnd.nextFloat() * 20f,
-                            y + step / 2f + rnd.nextFloat() * 20f
+                            x + step / 2f + rnd.nextFloat() * 30f,
+                            y + step / 2f + rnd.nextFloat() * 30f
                         )
                         drawLine(b, Offset(x, y), mid, 4f)
                         drawLine(b, mid, Offset(x2, y), 4f)
