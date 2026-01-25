@@ -32,7 +32,7 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-       PatternCatalogExporter.runIfEnabled(this)
+       //PatternCatalogExporter.runIfEnabled(this)
 
     }
 }

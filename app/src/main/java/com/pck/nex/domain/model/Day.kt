@@ -6,7 +6,7 @@ import java.time.LocalDate
 data class Day(
     val date: LocalDate,
     val tasks: List<Task>,
-    val lastEdited: Instant,
-    val backgroundSeed: Long? = null,
-    val backgroundType: Int? = null
+    val lastEdited:  Long = 0L,
+    val backgroundSeed: Long,
+    val backgroundType: Int
 )

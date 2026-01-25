@@ -1,20 +1,29 @@
 package com.pck.nex
 
 import android.app.Application
+import androidx.room.Room
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import com.pck.nex.data.db.NeXDatabase
+import com.pck.nex.data.repo.DayRepository
 import com.pck.nex.notifications.NotificationUtils
 import com.pck.nex.reminders.TomorrowReminderWorker
 import java.util.concurrent.TimeUnit
 
 class NeXApp : Application() {
+
+    lateinit var repo: DayRepository
+        private set
+
     override fun onCreate() {
         super.onCreate()
-        // Create notification channels once
+
+        /* -------------------------------
+         * Notifications (unchanged)
+         * ------------------------------- */
         NotificationUtils.createChannels(this)
 
-        // Enqueue the periodic reminder (15-minute cadence)
         val work = PeriodicWorkRequestBuilder<TomorrowReminderWorker>(
             15, TimeUnit.MINUTES
         ).build()
@@ -24,5 +33,16 @@ class NeXApp : Application() {
             ExistingPeriodicWorkPolicy.KEEP,
             work
         )
+
+        /* -------------------------------
+         * Database + Repository
+         * ------------------------------- */
+        val db = Room.databaseBuilder(
+            applicationContext,
+            NeXDatabase::class.java,
+            "nex.db"
+        ).build()
+
+        repo = DayRepository(db.dayDao())
     }
 }

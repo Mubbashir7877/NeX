@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.ksp)
 }
 
 android {
@@ -47,6 +48,8 @@ android {
         // Works with Kotlin 2.0.x. If Studio suggests a newer one, accept it.
         kotlinCompilerExtensionVersion = "1.5.14"
     }
+
+
 }
 
 dependencies {
@@ -54,17 +57,25 @@ dependencies {
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.ui:ui-tooling-preview")
-    debugImplementation("androidx.compose.ui:ui-tooling")
-    implementation("androidx.navigation:navigation-compose:2.8.3")
 
+    // Use version catalog for Room
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+
+    implementation("androidx.navigation:navigation-compose:2.8.3")
     implementation("androidx.work:work-runtime-ktx:2.9.1")
     implementation("androidx.datastore:datastore-preferences:1.1.1")
-
     implementation("androidx.core:core-ktx:1.13.1")
-    // --- Tests (from your catalog) ---
+
+    // Tests
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.ui.test.junit4)
+
+    // Room compiler using KSP
+    ksp(libs.androidx.room.compiler)
+
+    debugImplementation("androidx.compose.ui:ui-tooling")
 }
