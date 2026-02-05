@@ -1,8 +1,9 @@
 package com.pck.nex.ui.screen.day
 
-
 import android.app.TimePickerDialog
 import android.content.Context
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -15,18 +16,28 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import coil.size.Size as CoilSize
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.foundation.background
 import androidx.compose.ui.unit.dp
+import coil.decode.GifDecoder
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.pck.nex.NeXApp
+import com.pck.nex.R
 import com.pck.nex.domain.model.Day
 import com.pck.nex.domain.model.Task
 import com.pck.nex.graphics.NexBackground
+
 import com.pck.nex.graphics.NexBackgroundCanvas
 import com.pck.nex.graphics.PatternType
 import com.pck.nex.graphics.buildBackground
@@ -42,15 +53,20 @@ import java.util.UUID
 import kotlin.math.absoluteValue
 
 @Composable
-fun DayScreen() {
+fun DayScreen(
+    initialDateIso: String,
+    onOpenLibrary: () -> Unit,
+    onOpenDay: (dateIso: String) -> Unit
+) {
     val context = LocalContext.current
     val repo = (context.applicationContext as NeXApp).repo
     val scope = rememberCoroutineScope()
 
     val focusManager = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
+    val snack = remember { SnackbarHostState() }
 
-    var date by remember { mutableStateOf(LocalDate.now()) }
+    var date by remember(initialDateIso) { mutableStateOf(LocalDate.parse(initialDateIso)) }
     var day by remember { mutableStateOf<Day?>(null) }
 
     val tasks by repo.tasks(date).collectAsState(initial = emptyList())
@@ -65,26 +81,26 @@ fun DayScreen() {
     val isFuture = date.isAfter(today)
 
     val dateLabel = date.format(DateTimeFormatter.ofPattern("EEE, MMM d, yyyy"))
-    // Day is loaded asynchronously; guard first composition
+
+    // Safe placeholder while day loads
     if (day == null) {
-        val placeholderBg = NexBackground(
+        val placeholder = NexBackground(
             seed = 0L,
             type = PatternType.DIAG_STRIPES,
             a = Color.Black,
             b = Color.Black
         )
-
         Box(Modifier.fillMaxSize()) {
-            NexBackgroundCanvas(
-                modifier = Modifier.fillMaxSize(),
-                background = placeholderBg
-            )
+            NexBackgroundCanvas(Modifier.fillMaxSize(), placeholder)
         }
         return
     }
+
     val resolvedDay = day!!
 
-    // ---------- BACKGROUND ----------
+    // Background rules:
+    // - Future days: pure black
+    // - Today/past: use stored background (Room)
     val bg = if (isFuture) {
         NexBackground(
             seed = 0L,
@@ -99,7 +115,6 @@ fun DayScreen() {
         )
     }
 
-    // ---------- UI COLORS ----------
     val ui = if (isFuture) {
         UiColors(
             text = Color.White,
@@ -114,6 +129,7 @@ fun DayScreen() {
     var newTaskTitle by remember { mutableStateOf("") }
     val noRipple = remember { MutableInteractionSource() }
 
+    // Swipe nav thresholds
     val swipeThresholdPx = 80f
     var dragAccum by remember { mutableFloatStateOf(0f) }
 
@@ -139,23 +155,34 @@ fun DayScreen() {
                         onDragStart = { dragAccum = 0f },
                         onHorizontalDrag = { _, dragAmount -> dragAccum += dragAmount },
                         onDragEnd = {
+                            // Existing UX:
+                            // swipe right -> previous day
+                            // swipe left  -> next day
                             if (dragAccum > swipeThresholdPx) {
+                                // PREVIOUS: only jump to previous day with tasks
                                 focusManager.clearFocus(); keyboard?.hide()
-                                date = date.minusDays(1)
+                                scope.launch {
+                                    val prev = repo.previousDayWithTasks(date)
+                                    if (prev == null) {
+                                        snack.showSnackbar("No previous tasks found")
+                                    } else {
+                                        onOpenDay(prev.toString())
+                                    }
+                                }
                             } else if (dragAccum < -swipeThresholdPx) {
                                 focusManager.clearFocus(); keyboard?.hide()
-                                date = date.plusDays(1)
+                                onOpenDay(date.plusDays(1).toString())
                             }
                             dragAccum = 0f
                         }
                     )
                 }
         ) {
-
-            // ---------- DATE CHIP ----------
+            // DATE CHIP
             Surface(
                 color = ui.panelFill,
-                shape = RoundedCornerShape(16.dp)
+                shape = RoundedCornerShape(16.dp),
+                tonalElevation = 0.dp
             ) {
                 Row(
                     modifier = Modifier
@@ -164,28 +191,40 @@ fun DayScreen() {
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(dateLabel, style = MaterialTheme.typography.titleLarge, color = ui.text)
+                    Text(
+                        text = dateLabel,
+                        style = MaterialTheme.typography.titleLarge,
+                        color = ui.text
+                    )
 
-                    TextButton(
-                        enabled = isToday,
-                        onClick = {
-                            val seed = System.currentTimeMillis()
-                            val type = (seed % PatternType.entries.size).toInt()
-                            scope.launch {
-                                repo.updateBackground(date, seed, type)
-                                day = resolvedDay.copy(backgroundSeed = seed, backgroundType = type)
+                    Box(
+                        modifier = Modifier
+                            .size(42.dp)
+                            .clickable(enabled = isToday) {
+                                val seed = System.currentTimeMillis()
+                                val type = (seed % PatternType.entries.size).toInt()
+                                scope.launch {
+                                    repo.updateBackground(date, seed, type)
+                                    day = day!!.copy(backgroundSeed = seed, backgroundType = type)
+                                }
                             }
-                        },
-                        colors = ButtonDefaults.textButtonColors(contentColor = ui.text)
                     ) {
-                        Text("↻")
+                        AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .data(R.raw.refresh)
+                                .decoderFactory(GifDecoder.Factory())
+                                .size(CoilSize.ORIGINAL)
+                                .build(),
+                            contentDescription = "Refresh background",
+                            modifier = Modifier.fillMaxSize()
+                        )
                     }
                 }
             }
 
             Spacer(Modifier.height(10.dp))
 
-            // ---------- TASK LIST ----------
+            // TASK LIST
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -200,50 +239,42 @@ fun DayScreen() {
                         enabled = !isPast,
                         ui = ui,
                         onToggle = { checked ->
-                            scope.launch {
-                                repo.upsertTask(date, t.copy(isDone = checked), tasks.indexOf(t))
-                            }
+                            scope.launch { repo.upsertTask(date, t.copy(isDone = checked), tasks.indexOf(t)) }
                         },
                         onSetDueTime = { due ->
                             val updated = t.copy(dueTime = due)
-                            scope.launch {
-                                repo.upsertTask(date, updated, tasks.indexOf(t))
-                            }
-                            if (date == today) {
+                            scope.launch { repo.upsertTask(date, updated, tasks.indexOf(t)) }
+
+                            if (date == LocalDate.now()) {
+                                val triggerAt = LocalDateTime.of(date, due)
+                                val requestId = stableRequestId(date, updated.id)
                                 TaskAlarmScheduler.scheduleTaskAlarm(
-                                    context,
-                                    date,
-                                    updated.title,
-                                    stableRequestId(date, updated.id),
-                                    LocalDateTime.of(date, due)
+                                    context = context,
+                                    day = date,
+                                    taskTitle = updated.title,
+                                    requestId = requestId,
+                                    triggerAt = triggerAt
                                 )
                             }
                         },
                         onClearDueTime = {
-                            scope.launch {
-                                repo.upsertTask(date, t.copy(dueTime = null), tasks.indexOf(t))
-                            }
-                            TaskAlarmScheduler.cancelTaskAlarm(
-                                context,
-                                stableRequestId(date, t.id)
-                            )
+                            scope.launch { repo.upsertTask(date, t.copy(dueTime = null), tasks.indexOf(t)) }
+                            TaskAlarmScheduler.cancelTaskAlarm(context, stableRequestId(date, t.id))
                         },
                         onDelete = {
                             scope.launch { repo.deleteTask(t.id) }
-                            TaskAlarmScheduler.cancelTaskAlarm(
-                                context,
-                                stableRequestId(date, t.id)
-                            )
+                            TaskAlarmScheduler.cancelTaskAlarm(context, stableRequestId(date, t.id))
                         }
                     )
                     Spacer(Modifier.height(8.dp))
                 }
             }
 
-            // ---------- ADD BAR ----------
+            // ADD BAR (Library button on left, Add button on right)
             Surface(
                 color = ui.fieldFill,
-                shape = RoundedCornerShape(18.dp)
+                shape = RoundedCornerShape(18.dp),
+                tonalElevation = 0.dp
             ) {
                 Row(
                     modifier = Modifier
@@ -251,6 +282,22 @@ fun DayScreen() {
                         .padding(10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    // Library button (3-rectangle aesthetic)
+                    IconButton(
+                        onClick = {
+                            focusManager.clearFocus()
+                            keyboard?.hide()
+                            onOpenLibrary()
+                        },
+                        modifier = Modifier
+                            .size(44.dp)
+                            .background(ui.buttonFill, RoundedCornerShape(14.dp))
+                    ) {
+                        WindowsTileGlyph(color = ui.buttonText)
+                    }
+
+                    Spacer(Modifier.width(10.dp))
+
                     OutlinedTextField(
                         value = newTaskTitle,
                         onValueChange = { newTaskTitle = it },
@@ -264,6 +311,8 @@ fun DayScreen() {
                             focusedBorderColor = ui.outline,
                             unfocusedBorderColor = ui.outline.copy(alpha = 0.65f),
                             cursorColor = ui.text,
+                            focusedLabelColor = ui.text.copy(alpha = 0.75f),
+                            unfocusedLabelColor = ui.text.copy(alpha = 0.65f),
                             focusedContainerColor = Color.Transparent,
                             unfocusedContainerColor = Color.Transparent
                         ),
@@ -271,7 +320,7 @@ fun DayScreen() {
                         keyboardActions = KeyboardActions(
                             onDone = {
                                 val title = newTaskTitle.trim()
-                                if (title.isNotEmpty()) {
+                                if (!isPast && title.isNotEmpty()) {
                                     scope.launch {
                                         repo.upsertTask(
                                             date,
@@ -293,16 +342,18 @@ fun DayScreen() {
                         enabled = !isPast && newTaskTitle.isNotBlank(),
                         onClick = {
                             val title = newTaskTitle.trim()
-                            scope.launch {
-                                repo.upsertTask(
-                                    date,
-                                    Task(UUID.randomUUID(), title, false, null),
-                                    tasks.size
-                                )
+                            if (title.isNotEmpty()) {
+                                scope.launch {
+                                    repo.upsertTask(
+                                        date,
+                                        Task(UUID.randomUUID(), title, false, null),
+                                        tasks.size
+                                    )
+                                }
+                                newTaskTitle = ""
+                                focusManager.clearFocus()
+                                keyboard?.hide()
                             }
-                            newTaskTitle = ""
-                            focusManager.clearFocus()
-                            keyboard?.hide()
                         },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = ui.buttonFill,
@@ -324,9 +375,41 @@ fun DayScreen() {
                 modifier = Modifier.align(Alignment.CenterHorizontally)
             )
         }
+
+        SnackbarHost(
+            hostState = snack,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 88.dp)
+        )
     }
 }
 
+@Composable
+private fun WindowsTileGlyph(color: Color) {
+    Canvas(modifier = Modifier.fillMaxSize()) {
+        val w = size.width
+        val h = size.height
+        val pad = w * 0.18f
+        val gap = w * 0.10f
+
+        val cellW = (w - pad * 2f - gap) / 2f
+        val cellH = (h - pad * 2f - gap) / 2f
+        val r = CornerRadius(cellW * 0.18f, cellW * 0.18f)
+
+        fun rect(x: Float, y: Float) = androidx.compose.ui.geometry.Rect(
+            left = x,
+            top = y,
+            right = x + cellW,
+            bottom = y + cellH
+        )
+
+        drawRoundRect(color, topLeft = Offset(pad, pad), size = Size(cellW, cellH), cornerRadius = r)
+        drawRoundRect(color, topLeft = Offset(pad + cellW + gap, pad), size = Size(cellW, cellH), cornerRadius = r)
+        drawRoundRect(color, topLeft = Offset(pad, pad + cellH + gap), size = Size(cellW, cellH), cornerRadius = r)
+        drawRoundRect(color, topLeft = Offset(pad + cellW + gap, pad + cellH + gap), size = Size(cellW, cellH), cornerRadius = r)
+    }
+}
 
 @Composable
 private fun TaskRow(
@@ -375,12 +458,7 @@ private fun TaskRow(
                 )
             }
 
-            // Small translucent button chips for actions
-            ActionChip(
-                text = "Time",
-                enabled = enabled,
-                ui = ui
-            ) {
+            ActionChip(text = "Time", enabled = enabled, ui = ui) {
                 val now = LocalTime.now()
                 TimePickerDialog(
                     context,
@@ -423,7 +501,6 @@ private fun ActionChip(
         Text(text)
     }
 }
-
 
 private fun stableRequestId(date: LocalDate, taskId: UUID): Int {
     return (date.toEpochDay().hashCode() xor taskId.hashCode()).absoluteValue
