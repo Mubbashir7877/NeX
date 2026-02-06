@@ -44,9 +44,8 @@ class NeXWidgetFactory(
             putExtra(NeXTodayWidgetProvider.EXTRA_TASK_ID, row.id)
         }
 
-        // ONLY the checkbox is interactive
-// Row handles click → toggle task
-        rv.setOnClickFillInIntent(R.id.w_task_row, fillIn)
+        // Set click intent ONLY on the checkbox, not the entire row
+        rv.setOnClickFillInIntent(R.id.w_task_check, fillIn)
 
         return rv
     }

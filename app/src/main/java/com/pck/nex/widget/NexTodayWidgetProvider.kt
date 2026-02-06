@@ -29,6 +29,9 @@ class NeXTodayWidgetProvider : AppWidgetProvider() {
         when (intent.action) {
             ACTION_TOGGLE_DONE -> {
                 val taskId = intent.getStringExtra(EXTRA_TASK_ID)
+
+                android.util.Log.d("NeXWidget", "ACTION_TOGGLE_DONE taskId=$taskId")
+
                 if (!taskId.isNullOrBlank()) {
                     handleToggle(context, taskId)
                 }
@@ -92,8 +95,9 @@ class NeXTodayWidgetProvider : AppWidgetProvider() {
             context,
             200 + appWidgetId,
             template,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
         )
+
         views.setPendingIntentTemplate(R.id.w_list, templatePI)
 
         appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.w_list)
