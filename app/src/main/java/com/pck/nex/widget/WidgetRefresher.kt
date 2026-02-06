@@ -11,13 +11,10 @@ object WidgetRefresher {
         val ids = mgr.getAppWidgetIds(ComponentName(context, NeXTodayWidgetProvider::class.java))
         if (ids.isEmpty()) return
 
-        // Forces RemoteViewsFactory.onDataSetChanged() for the list
         ids.forEach { id ->
             mgr.notifyAppWidgetViewDataChanged(id, R.id.w_list)
         }
 
-        // Also triggers full RemoteViews rebind via provider logic
-        // (simplest: broadcast ACTION_REFRESH which your provider already handles)
         context.sendBroadcast(
             android.content.Intent(context, NeXTodayWidgetProvider::class.java).apply {
                 action = NeXTodayWidgetProvider.ACTION_REFRESH

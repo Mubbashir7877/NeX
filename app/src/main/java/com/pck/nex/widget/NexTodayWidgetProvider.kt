@@ -62,16 +62,18 @@ class NeXTodayWidgetProvider : AppWidgetProvider() {
         val views = RemoteViews(context.packageName, R.layout.widget_nex_4x5)
 
         val label = today.format(DateTimeFormatter.ofPattern("EEE, MMM d"))
-        views.setTextViewText(R.id.w_date, "Today · $label")
+        views.setTextViewText(R.id.w_date, "$label")
 
         val bgColor = WidgetPalette.bgFromSeed(day.backgroundSeed, day.backgroundType)
         views.setInt(R.id.w_root, "setBackgroundColor", bgColor)
 
-        // Refresh button
         views.setOnClickPendingIntent(
             R.id.w_refresh,
             pendingBroadcast(context, ACTION_REFRESH, reqCode = 100 + appWidgetId)
         )
+
+
+
 
         // Open app for any other click area
         views.setOnClickPendingIntent(

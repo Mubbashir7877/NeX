@@ -18,7 +18,7 @@
         android:gravity="center"
         android:text="☐"
         android:textSize="18sp"
-        android:textColor="#121212"
+        android:textColor="#D9FFFFFF"
         android:clickable="true"
         android:focusable="true" />
     <!-- Added clickable and focusable here -->
@@ -32,7 +32,7 @@
         android:layout_marginStart="10dp"
         android:layout_centerVertical="true"
         android:text="Task title"
-        android:textColor="#121212"
+        android:textColor="#D9FFFFFF"
         android:textSize="16sp"
         android:maxLines="2"
         android:ellipsize="end" />

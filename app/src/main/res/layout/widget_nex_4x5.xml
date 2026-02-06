@@ -18,21 +18,21 @@
             android:id="@+id/w_date"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Today"
             android:textSize="18sp"
             android:textStyle="bold"
-            android:textColor="#121212"/>
+            android:textColor="#D9FFFFFF"/>
 
-        <TextView
+        <ImageView
             android:id="@+id/w_refresh"
             android:layout_width="36dp"
             android:layout_height="36dp"
             android:layout_alignParentEnd="true"
-            android:gravity="center"
-            android:text="↻"
-            android:textSize="20sp"
-            android:textColor="#121212"
-            android:background="@drawable/widget_chip_round"/>
+            android:src="@mipmap/ic_launcher_round"
+            android:scaleType="centerInside"
+            android:background="@drawable/widget_chip_round"
+            android:clickable="false"
+            android:focusable="false" />
+
     </RelativeLayout>
 
     <!-- Transparent tap target to open app (BEHIND list) -->
