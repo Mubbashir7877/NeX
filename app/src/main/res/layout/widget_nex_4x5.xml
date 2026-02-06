@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/w_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="12dp">
+
+    <!-- Header -->
+    <RelativeLayout
+        android:id="@+id/w_header"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/widget_panel_round"
+        android:padding="12dp">
+
+        <TextView
+            android:id="@+id/w_date"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Today"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="#121212"/>
+
+        <TextView
+            android:id="@+id/w_refresh"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_alignParentEnd="true"
+            android:gravity="center"
+            android:text="↻"
+            android:textSize="20sp"
+            android:textColor="#121212"
+            android:background="@drawable/widget_chip_round"/>
+    </RelativeLayout>
+
+    <!-- Transparent tap target to open app (BEHIND list) -->
+    <FrameLayout
+        android:id="@+id/w_open_app_area"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_below="@id/w_header"/>
+
+    <!-- Task list (on top, clickable) -->
+    <ListView
+        android:id="@+id/w_list"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_below="@id/w_header"
+        android:layout_marginTop="10dp"
+        android:divider="@android:color/transparent"
+        android:dividerHeight="8dp"
+        android:scrollbars="vertical"/>
+
+    <TextView
+        android:id="@+id/w_empty"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/w_header"
+        android:layout_marginTop="16dp"
+        android:gravity="center"
+        android:text="All tasks complete"
+        android:textColor="#222222"
+        android:textSize="14sp"
+        android:visibility="gone"/>
+
+</RelativeLayout>

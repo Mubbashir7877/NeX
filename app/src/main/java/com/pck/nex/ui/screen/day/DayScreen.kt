@@ -34,6 +34,7 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.pck.nex.NeXApp
 import com.pck.nex.R
+import com.pck.nex.widget.WidgetRefresher
 import com.pck.nex.domain.model.Day
 import com.pck.nex.domain.model.Task
 import com.pck.nex.graphics.NexBackground
@@ -240,10 +241,18 @@ fun DayScreen(
                         ui = ui,
                         onToggle = { checked ->
                             scope.launch { repo.upsertTask(date, t.copy(isDone = checked), tasks.indexOf(t)) }
+                            if (date == LocalDate.now()) {
+                                WidgetRefresher.refreshTodayWidget(context)
+                            }
+
                         },
                         onSetDueTime = { due ->
                             val updated = t.copy(dueTime = due)
                             scope.launch { repo.upsertTask(date, updated, tasks.indexOf(t)) }
+                            if (date == LocalDate.now()) {
+                                WidgetRefresher.refreshTodayWidget(context)
+                            }
+
 
                             if (date == LocalDate.now()) {
                                 val triggerAt = LocalDateTime.of(date, due)
@@ -259,10 +268,18 @@ fun DayScreen(
                         },
                         onClearDueTime = {
                             scope.launch { repo.upsertTask(date, t.copy(dueTime = null), tasks.indexOf(t)) }
+                            if (date == LocalDate.now()) {
+                                WidgetRefresher.refreshTodayWidget(context)
+                            }
+
                             TaskAlarmScheduler.cancelTaskAlarm(context, stableRequestId(date, t.id))
                         },
                         onDelete = {
                             scope.launch { repo.deleteTask(t.id) }
+                            if (date == LocalDate.now()) {
+                                WidgetRefresher.refreshTodayWidget(context)
+                            }
+
                             TaskAlarmScheduler.cancelTaskAlarm(context, stableRequestId(date, t.id))
                         }
                     )
@@ -327,6 +344,10 @@ fun DayScreen(
                                             Task(UUID.randomUUID(), title, false, null),
                                             tasks.size
                                         )
+                                        if (date == LocalDate.now()) {
+                                            WidgetRefresher.refreshTodayWidget(context)
+                                        }
+
                                     }
                                     newTaskTitle = ""
                                     focusManager.clearFocus()
@@ -349,6 +370,10 @@ fun DayScreen(
                                         Task(UUID.randomUUID(), title, false, null),
                                         tasks.size
                                     )
+                                    if (date == LocalDate.now()) {
+                                        WidgetRefresher.refreshTodayWidget(context)
+                                    }
+
                                 }
                                 newTaskTitle = ""
                                 focusManager.clearFocus()
@@ -366,14 +391,9 @@ fun DayScreen(
                 }
             }
 
-            Spacer(Modifier.height(6.dp))
 
-            Text(
-                text = "Swipe left/right to change day",
-                color = ui.text.copy(alpha = 0.55f),
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.align(Alignment.CenterHorizontally)
-            )
+
+
         }
 
         SnackbarHost(
