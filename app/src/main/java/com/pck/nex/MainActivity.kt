@@ -16,6 +16,7 @@ import androidx.navigation.navArgument
 import app.nex.ui.theme.NeXTheme
 import com.pck.nex.ui.screen.day.DayScreen
 import com.pck.nex.ui.screen.library.LibraryScreen
+import com.pck.nex.graphics.debug.PatternCatalogExporter
 import java.time.LocalDate
 
 class MainActivity : ComponentActivity() {
@@ -29,7 +30,7 @@ class MainActivity : ComponentActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             requestNotifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
-
+        PatternCatalogExporter.runIfEnabled(this)
         setContent {
             NeXTheme {
                 Surface(color = MaterialTheme.colorScheme.background) {

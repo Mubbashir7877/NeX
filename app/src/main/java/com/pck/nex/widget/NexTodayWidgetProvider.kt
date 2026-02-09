@@ -54,7 +54,8 @@ class NeXTodayWidgetProvider : AppWidgetProvider() {
     }
 
     private fun updateOne(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int) {
-        val repo = (context.applicationContext as NeXApp).repo
+        val app = context.applicationContext as NeXApp
+        val repo = app.dayRepo
         val today = LocalDate.now()
 
         val day = runBlocking { repo.getOrCreate(today) }
@@ -135,7 +136,8 @@ class NeXTodayWidgetProvider : AppWidgetProvider() {
         const val EXTRA_TASK_ID = "extra_task_id"
 
         fun handleToggle(context: Context, taskId: String) {
-            val repo = (context.applicationContext as NeXApp).repo
+            val app = context.applicationContext as NeXApp
+            val repo = app.dayRepo
             runBlocking {
                 repo.setTaskDone(UUID.fromString(taskId), true)
             }

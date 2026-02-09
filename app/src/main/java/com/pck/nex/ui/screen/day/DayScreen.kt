@@ -60,7 +60,8 @@ fun DayScreen(
     onOpenDay: (dateIso: String) -> Unit
 ) {
     val context = LocalContext.current
-    val repo = (context.applicationContext as NeXApp).repo
+    val app = context.applicationContext as NeXApp
+    val repo = app.dayRepo
     val scope = rememberCoroutineScope()
 
     val focusManager = LocalFocusManager.current

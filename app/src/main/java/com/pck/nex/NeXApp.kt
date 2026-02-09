@@ -7,20 +7,24 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.pck.nex.data.db.NeXDatabase
 import com.pck.nex.data.repo.DayRepository
+import com.pck.nex.data.repo.TemplateRepository
 import com.pck.nex.notifications.NotificationUtils
 import com.pck.nex.reminders.TomorrowReminderWorker
 import java.util.concurrent.TimeUnit
 
 class NeXApp : Application() {
 
-    lateinit var repo: DayRepository
+    lateinit var dayRepo: DayRepository
+        private set
+
+    lateinit var templateRepo: TemplateRepository
         private set
 
     override fun onCreate() {
         super.onCreate()
 
         /* -------------------------------
-         * Notifications (unchanged)
+         * Notifications
          * ------------------------------- */
         NotificationUtils.createChannels(this)
 
@@ -35,14 +39,21 @@ class NeXApp : Application() {
         )
 
         /* -------------------------------
-         * Database + Repository
+         * Database + Repositories
          * ------------------------------- */
         val db = Room.databaseBuilder(
             applicationContext,
             NeXDatabase::class.java,
             "nex.db"
-        ).build()
+        )
+            .fallbackToDestructiveMigration()
+            .build()
 
-        repo = DayRepository(db.dayDao())
+        dayRepo = DayRepository(db.dayDao())
+
+        templateRepo = TemplateRepository(
+            templateDao = db.templateDao(),
+            dayRepository = dayRepo
+        )
     }
 }

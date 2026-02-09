@@ -11,6 +11,8 @@
     <application
         android:name=".NeXApp"
         android:allowBackup="true"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:icon="@mipmap/ic_launcher"
         android:label="NeX"
         android:supportsRtl="true"
         android:theme="@style/Theme.NeX">

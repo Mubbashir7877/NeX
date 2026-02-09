@@ -86,6 +86,18 @@ private val NEX_PALETTE: List<Color> = listOf(
     Color(0xFF16A34A), // green-600
     Color(0xFF1CB302 ),
     Color(0xFFF5E642),
+    // Additional mid tones (balanced + muted)
+    Color(0xFF475569), // blue-gray slate (great structural neutral)
+    Color(0xFF5A6B8A), // desaturated denim blue
+    Color(0xFF6B7280), // true mid gray (anchor tone)
+    Color(0xFF6A7F6E), // eucalyptus green (cool organic)
+    Color(0xFF7A8450), // olive moss (earthy mid)
+    Color(0xFF8B6F5A), // clay brown (warm balance)
+    Color(0xFF8A5A6D), // muted rose-plum
+    Color(0xFF8F7A99), // dusty violet-gray
+    Color(0xFF9CA3AF), // soft steel (light-leaning mid)
+    Color(0xFF7B8C8E), // weathered teal-gray
+
     Color(0xFFD97706), // amber-600
     Color(0xFFDC2626), // red-600
     Color(0xFF7C3AED), // violet-600
@@ -99,7 +111,20 @@ private val NEX_PALETTE: List<Color> = listOf(
     Color(0xFFA1FFFC ),
     Color(0xFFFFA3EA),
     Color(0xFFA9ADFC ),
-    Color(0xFFFFF7ED)
+    Color(0xFFFFF7ED),
+    // Expanded range – cool, earthy, and atmospheric
+    Color(0xFF2A2F3A), // gunmetal slate (dark neutral anchor)
+    Color(0xFF3A4F7A), // muted steel blue
+    Color(0xFF4B5563), // cool stone gray (mid neutral)
+    Color(0xFF5B6E4F), // moss olive (organic green-brown)
+    Color(0xFF6B4E71), // smoky mauve (low-chroma purple)
+    Color(0xFF7A6F5D), // warm taupe (earth balance)
+    Color(0xFF8FA3A6), // desaturated cyan-gray
+    Color(0xFFB6A8C9), // dusty lavender (soft contrast)
+    Color(0xFFD6C7B8), // parchment sand (warm light neutral)
+    Color(0xFFE6EDF3) // cool off-white (high-value contrast)
+
+
 )
 
 fun buildBackground(seed: Long, forcedTypeId: Int? = null): NexBackground {
@@ -426,11 +451,11 @@ fun NexBackgroundCanvas(modifier: Modifier, background: NexBackground) {
             PatternType.RINGS_OFFCENTER -> {
                 val cx = w * 0.5f
                 val cy = h * 0.5f
-                val rMax = min(w, h) * 0.5f
+                val rMax = min(w, h) * 0.95f
 
-                val arms = 12                 // number of spiral blades
+                val arms = 15                 // number of spiral blades
                 val steps = 80                // radial resolution
-                val sw = 4f
+                val sw = 9f
 
                 var a = 0
                 while (a < arms) {

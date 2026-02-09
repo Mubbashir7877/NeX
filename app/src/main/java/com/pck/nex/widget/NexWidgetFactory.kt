@@ -21,7 +21,8 @@ class NeXWidgetFactory(
 
     override fun onDataSetChanged() {
         // Called by system; ok to do blocking IO here in RemoteViewsFactory
-        val repo = (context.applicationContext as NeXApp).repo
+        val app = context.applicationContext as NeXApp
+        val repo = app.dayRepo
         val today = LocalDate.now()
 
         val tasks = runBlocking { repo.uncheckedTasksForToday(today) }
