@@ -30,7 +30,7 @@ class MainActivity : ComponentActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             requestNotifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
-        PatternCatalogExporter.runIfEnabled(this)
+        //PatternCatalogExporter.runIfEnabled(this)
         setContent {
             NeXTheme {
                 Surface(color = MaterialTheme.colorScheme.background) {

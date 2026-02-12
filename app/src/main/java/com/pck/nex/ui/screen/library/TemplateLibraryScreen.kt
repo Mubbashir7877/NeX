@@ -7,9 +7,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.pck.nex.NeXApp
 import com.pck.nex.domain.model.Template
 import com.pck.nex.domain.model.TemplateTask
+import java.time.LocalDate
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 
 /**
@@ -291,4 +295,74 @@ fun TemplateLibraryScreen(
             }
         )
     }
+}
+
+/**
+ * Non-pure wrapper that preserves the "updates" logic:
+ * - pulls repo from NeXApp
+ * - observes templates + tasks
+ * - performs repo calls inside scope.launch
+ *
+ * IMPORTANT: Does not change/remove any names/logic from either version.
+ */
+@Composable
+fun TemplateLibraryScreen() {
+
+    val context = LocalContext.current
+    val app = context.applicationContext as NeXApp
+    val templateRepo = app.templateRepo
+
+    val scope = rememberCoroutineScope()
+
+    val templates by templateRepo.observeTemplates()
+        .collectAsState(initial = emptyList())
+
+    var selectedTemplateId by remember { mutableStateOf<String?>(null) }
+
+    val tasks by remember(selectedTemplateId) {
+        selectedTemplateId?.let {
+            templateRepo.observeTemplateTasks(it)
+        } ?: flowOf(emptyList())
+    }.collectAsState(initial = emptyList())
+
+    TemplateLibraryScreen(
+        templates = templates,
+        tasksForSelected = tasks,
+        selectedTemplateId = selectedTemplateId,
+
+        onSelectTemplate = { id ->
+            selectedTemplateId = id
+        },
+        onCreateTemplate = { name ->
+            scope.launch {
+                templateRepo.createTemplate(name)
+            }
+        },
+        onRenameTemplate = { templateId, newName ->
+            scope.launch {
+                templateRepo.renameTemplate(templateId, newName)
+            }
+        },
+        onDeleteTemplate = { templateId ->
+            scope.launch {
+                templateRepo.deleteTemplate(templateId)
+                if (selectedTemplateId == templateId) selectedTemplateId = null
+            }
+        },
+        onAddTask = { templateId, title ->
+            scope.launch {
+                templateRepo.addTask(templateId, title)
+            }
+        },
+        onDeleteTask = { taskId, templateId ->
+            scope.launch {
+                templateRepo.deleteTask(taskId, templateId)
+            }
+        },
+        onAddToDay = { templateId ->
+            scope.launch {
+                templateRepo.addTemplateToDay(templateId, LocalDate.now())
+            }
+        }
+    )
 }

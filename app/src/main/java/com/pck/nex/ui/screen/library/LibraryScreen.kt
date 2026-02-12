@@ -29,6 +29,8 @@ import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+
+
 fun LibraryScreen(
     onOpenDay: (String) -> Unit,
     onArchive: () -> Unit = {},
@@ -36,6 +38,7 @@ fun LibraryScreen(
 ) {
     val context = LocalContext.current
     val app = context.applicationContext as NeXApp
+    var currentTab by remember { mutableStateOf(DockTab.LIBRARY) }
     val dayRepo = app.dayRepo
     val templateRepo = app.templateRepo
 
@@ -163,25 +166,34 @@ fun LibraryScreen(
             Spacer(Modifier.height(12.dp))
 
             // ───── GRID ─────
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(4),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                contentPadding = PaddingValues(bottom = 90.dp)
-            ) {
-                items(days, key = { it.date.toString() }) { d ->
-                    DayTile(
-                        dateIso = d.date.toString(),
-                        seed = d.backgroundSeed,
-                        typeId = d.backgroundType,
-                        taskCount = d.taskCount,
-                        onClick = { onOpenDay(d.date.toString()) }
-                    )
+            if (currentTab == DockTab.LIBRARY) {
+
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(4),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    contentPadding = PaddingValues(bottom = 90.dp)
+                ) {
+                    items(days, key = { it.date.toString() }) { d ->
+                        DayTile(
+                            dateIso = d.date.toString(),
+                            seed = d.backgroundSeed,
+                            typeId = d.backgroundType,
+                            taskCount = d.taskCount,
+                            onClick = { onOpenDay(d.date.toString()) }
+                        )
+                    }
                 }
+
+            } else {
+
+                TemplateLibraryScreen()
+
             }
+
         }
 
         // ───── FLOATING DOCK ─────
@@ -191,18 +203,16 @@ fun LibraryScreen(
                 .padding(bottom = 14.dp)
         ) {
             BottomDockBar(
-                selected = DockTab.LIBRARY,
+                selected = currentTab,
                 ui = ui,
-                onLibrary = { },
+                onLibrary = { currentTab = DockTab.LIBRARY },
                 onArchive = {
                     scope.launch { snack.showSnackbar("Archive coming soon") }
                     onArchive()
                 },
-                onTemplate = {
-                    scope.launch { snack.showSnackbar("Template coming soon") }
-                    onTemplate()
-                }
+                onTemplate = { currentTab = DockTab.TEMPLATE }
             )
+
         }
 
         SnackbarHost(
@@ -292,4 +302,6 @@ private fun DayTile(
             )
         }
     }
+
+
 }

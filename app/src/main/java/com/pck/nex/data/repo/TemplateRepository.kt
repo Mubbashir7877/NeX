@@ -112,6 +112,20 @@ class TemplateRepository(
         val now = System.currentTimeMillis()
         templateDao.updateTemplate(t.copy(updatedAtEpochMs = now))
     }
+    suspend fun getTemplateTasksSync(
+        templateId: String
+    ): List<TemplateTask> {
+        return templateDao.getTemplateTasksOnce(templateId)
+            .map {
+                TemplateTask(
+                    taskId = it.taskId,
+                    templateId = it.templateId,
+                    title = it.title,
+                    orderIndex = it.orderIndex
+                )
+            }
+    }
+
 
     private fun TemplateEntity.toDomain() =
         Template(templateId, name, createdAtEpochMs, updatedAtEpochMs)

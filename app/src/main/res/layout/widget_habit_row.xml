@@ -1,0 +1,18 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="horizontal"
+    android:padding="6dp"
+    android:layout_height="16dp"
+    android:layout_width="16dp">
+
+    <ImageView
+        android:id="@+id/habit_checkbox"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:src="@drawable/ic_checkbox_unchecked"/>
+
+    <TextView
+        android:id="@+id/habit_task_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:paddingStart="8dp"/>
+</LinearLayout>

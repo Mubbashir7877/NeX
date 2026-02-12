@@ -54,4 +54,34 @@ class HabitWidgetRepository(
         dao.upsertWidget(updated)
         return updated
     }
+
+    suspend fun getWidgetSync(widgetId: Int): HabitWidgetEntity? {
+        return dao.getWidget(widgetId)
+    }
+
+    suspend fun getTasksForDaySync(
+        widgetId: Int,
+        epochDay: Long
+    ): List<HabitWidgetTaskEntity> {
+        return dao.tasksForDay(widgetId, epochDay)
+    }
+
+    suspend fun createWidget(
+        widgetId: Int,
+        templateId: String,
+        targetDays: Int
+    ) {
+        dao.upsertWidget(
+            HabitWidgetEntity(
+                appWidgetId = widgetId,
+                templateId = templateId,
+                templateName = "",
+                targetDays = targetDays,
+                streak = 0,
+                lastCompletedEpochDay = null,
+                isCompleted = false
+            )
+        )
+    }
+
 }
