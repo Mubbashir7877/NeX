@@ -7,7 +7,6 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.pck.nex.data.db.NeXDatabase
 import com.pck.nex.data.repo.DayRepository
-import com.pck.nex.data.repo.HabitWidgetRepository
 import com.pck.nex.data.repo.TemplateRepository
 import com.pck.nex.notifications.NotificationUtils
 import com.pck.nex.reminders.TomorrowReminderWorker
@@ -18,8 +17,6 @@ class NeXApp : Application() {
     lateinit var dayRepo: DayRepository
         private set
 
-    lateinit var habitWidgetRepo: HabitWidgetRepository
-        private set
 
     lateinit var templateRepo: TemplateRepository
         private set
@@ -54,7 +51,6 @@ class NeXApp : Application() {
             .build()
 
         dayRepo = DayRepository(db.dayDao())
-        habitWidgetRepo = HabitWidgetRepository(db.habitWidgetDao())
 
         templateRepo = TemplateRepository(
             templateDao = db.templateDao(),

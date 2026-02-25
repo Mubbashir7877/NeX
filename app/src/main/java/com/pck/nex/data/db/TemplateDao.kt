@@ -30,6 +30,10 @@ interface TemplateDao {
     @Update
     suspend fun updateTemplate(entity: TemplateEntity)
 
+    @Query("SELECT * FROM templates WHERE templateId = :id LIMIT 1")
+    suspend fun getTemplate(id: String): TemplateEntity?
+
+
     @Query("DELETE FROM templates WHERE templateId = :templateId")
     suspend fun deleteTemplate(templateId: String)
 

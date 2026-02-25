@@ -100,6 +100,9 @@ class TemplateRepository(
         templateDao.upsertTemplateTask(t.copy(title = newTitle.trim()))
         touchTemplate(templateId)
     }
+    suspend fun getTemplateNameSync(templateId: String): String? {
+        return templateDao.getTemplate(templateId)?.name
+    }
 
     /**
      * Copies template tasks into a chosen day using your existing DayRepository/TaskEntity model.
